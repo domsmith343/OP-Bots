@@ -1,9 +1,0 @@
-# Prevent secrets and unnecessary files from being tracked
-.env
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.env.*
-*.env
-.envrc

@@ -25,8 +25,7 @@ logger = logging.getLogger('ollama_discord_bot')
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OLLAMA_API = os.getenv('OLLAMA_API', 'http://localhost:11434')
 DEFAULT_MODEL = os.getenv('OLLAMA_DEFAULT_MODEL', 'llama3')
-NEWS_API_KEY = os.getenv('NEWS_API_KEY')
-COMMAND_PREFIX = '!'
+COMMAND_PREFIX = os.getenv('COMMAND_PREFIX', '.')
 
 if not DISCORD_TOKEN:
     logger.error("DISCORD_TOKEN is not set.")
@@ -63,7 +62,7 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        await ctx.send(f"Unknown command. Try `{COMMAND_PREFIX}help`.")
+        return  # Quietly ignore unknown commands
     else:
         logger.error(f"Error: {error}")
         await ctx.send(f"Error: {error}")
@@ -78,7 +77,7 @@ async def update_status():
 @bot.command(name="ask")
 async def ask(ctx, *, question: str = None):
     if not question:
-        return await ctx.send("Usage: `!ask <question>`")
+        return await ctx.send("Usage: `.ask <question>`")
     async with ctx.typing():
         response = await _async_call(question)
     if len(response) > 2000:
@@ -106,20 +105,19 @@ async def list_models(ctx):
 @bot.command(name="help")
 async def help_command(ctx, command: str = None):
     embed = discord.Embed(title="Robin Bot Commands", color=discord.Color.blue())
-    embed.add_field(name="!ask", value="Ask the LLM a question.", inline=False)
-    embed.add_field(name="!models", value="List available Ollama models.", inline=False)
-    embed.add_field(name="!summarize", value="Summarize provided text.", inline=False)
-    embed.add_field(name="!define", value="Define a term.", inline=False)
-    embed.add_field(name="!anime", value="Lookup anime info.", inline=False)
-    embed.add_field(name="!schedule", value="View or add schedule entries.", inline=False)
-    embed.add_field(name="!news", value="Get latest news headlines.", inline=False)
+    embed.add_field(name=".ask", value="Ask the LLM a question.", inline=False)
+    embed.add_field(name=".models", value="List available Ollama models.", inline=False)
+    embed.add_field(name=".summarize", value="Summarize provided text.", inline=False)
+    embed.add_field(name=".define", value="Define a term.", inline=False)
+    embed.add_field(name=".anime", value="Lookup anime info.", inline=False)
+    embed.add_field(name=".schedule", value="View or add schedule entries.", inline=False)
     await ctx.send(embed=embed)
 
 # --- New Commands ---
 @bot.command(name="summarize")
 async def summarize(ctx, *, text: str = None):
     if not text:
-        return await ctx.send("Usage: `!summarize <text>`")
+        return await ctx.send("Usage: `.summarize <text>`")
     prompt = f"Summarize this:\n\n{text}"
     response = await _async_call(prompt)
     msg = await ctx.send(response)
@@ -128,7 +126,7 @@ async def summarize(ctx, *, text: str = None):
 @bot.command(name="define")
 async def define(ctx, *, term: str = None):
     if not term:
-        return await ctx.send("Usage: `!define <term>`")
+        return await ctx.send("Usage: `.define <term>`")
     url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{term}"
     try:
         res = await asyncio.to_thread(requests.get, url, timeout=10)
@@ -144,7 +142,7 @@ async def define(ctx, *, term: str = None):
 @bot.command(name="anime")
 async def anime(ctx, *, query: str = None):
     if not query:
-        return await ctx.send("Usage: `!anime <title>`")
+        return await ctx.send("Usage: `.anime <title>`")
     url = f"https://api.jikan.moe/v4/anime?q={query}"
     try:
         resp = await asyncio.to_thread(requests.get, url, timeout=10)
@@ -171,21 +169,7 @@ async def schedule(ctx, *, entry: str = None):
 
 @bot.command(name="news")
 async def news(ctx):
-    if not NEWS_API_KEY:
-        return await ctx.send("News API key not set.")
-    url = f"https://newsapi.org/v2/top-headlines?country=us&category=sports&apiKey={NEWS_API_KEY}"
-    try:
-        response = await asyncio.to_thread(requests.get, url, timeout=10)
-        if response.status_code == 200:
-            articles = response.json().get("articles", [])[:5]
-            if not articles:
-                return await ctx.send("No news found.")
-            headlines = "\n\n".join([f"**{a['title']}**\n{a['url']}" for a in articles])
-            await ctx.send(f"📰 **Top Sports News:**\n\n{headlines}")
-        else:
-            await ctx.send(f"News fetch error: {response.status_code}")
-    except Exception as e:
-        await ctx.send(f"News error: {e}")
+    return await ctx.send("Robin does not handle news. Please use Nami with `!news`.")
 
 if __name__ == "__main__":
     try:

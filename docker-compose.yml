@@ -1,0 +1,20 @@
+services:
+  robin:
+    build: ./robin
+    container_name: robin
+    env_file:
+      - ./robin/.env
+    volumes:
+      - ./robin:/app
+    working_dir: /app
+    command: python ollama_discord_bot.py
+
+  nami:
+    build: ./nami
+    container_name: nami
+    env_file:
+      - ./nami/.env
+    volumes:
+      - ./nami:/app
+    working_dir: /app
+    command: python nami_bot.py

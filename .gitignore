@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+
+# dotenv
+.env
+*.env
+
+# VSCode
+.vscode/
+
+# Docker
+*.log
+*.pid
+*.sock
+*.tar
+*.db
+*.db-journal
+
+# OS
+.DS_Store
+Thumbs.db
