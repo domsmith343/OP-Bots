@@ -5,10 +5,11 @@ Nami Bot - News, Weather, Crypto, and Daily Brief
 
 import os
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import requests
 import logging
 from dotenv import load_dotenv
+import datetime
 
 load_dotenv()
 
@@ -22,6 +23,7 @@ NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 DEFAULT_CITY = os.getenv("DEFAULT_CITY", "los angeles")
 DEFAULT_CRYPTO = os.getenv("DEFAULT_CRYPTO", "btc")
+DAILYBRIEF_CHANNEL_ID = int(os.getenv("DAILYBRIEF_CHANNEL_ID", 0))
 
 COINGECKO_IDS = {
     "btc": "bitcoin",
@@ -42,6 +44,18 @@ bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 async def on_ready():
     logger.info(f"{bot.user.name} is online!")
     await bot.change_presence(activity=discord.Game(name="!help for Nami's commands"))
+    scheduled_briefs.start()
+
+@tasks.loop(minutes=1)
+async def scheduled_briefs():
+    now = datetime.datetime.now().strftime('%H:%M')
+    if now in ["08:00", "14:00", "20:00"]:
+        channel = bot.get_channel(DAILYBRIEF_CHANNEL_ID)
+        if channel:
+            await channel.send("☀️ Here's your scheduled Daily Brief:")
+            await news(channel)
+            await weather(channel)
+            await crypto(channel)
 
 @bot.command(name="help")
 async def help_command(ctx):
