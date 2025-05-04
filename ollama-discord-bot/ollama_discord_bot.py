@@ -25,6 +25,7 @@ logger = logging.getLogger('ollama_discord_bot')
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OLLAMA_API = os.getenv('OLLAMA_API', 'http://localhost:11434')
 DEFAULT_MODEL = os.getenv('OLLAMA_DEFAULT_MODEL', 'llama3')
+NEWS_API_KEY = os.getenv('NEWS_API_KEY')
 COMMAND_PREFIX = '!'
 
 if not DISCORD_TOKEN:
@@ -40,9 +41,6 @@ bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=
 SCHEDULE = []
 
 def call_ollama_api(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    """
-    Calls the Ollama API and returns the response text.
-    """
     return asyncio.get_event_loop().run_until_complete(_async_call(prompt, model))
 
 async def _async_call(prompt: str, model: str = DEFAULT_MODEL) -> str:
@@ -72,7 +70,6 @@ async def on_command_error(ctx, error):
 
 @tasks.loop(seconds=60)
 async def update_status():
-    # Dynamic status showing number of scheduled entries
     await bot.change_presence(
         activity=discord.Game(name=f"{COMMAND_PREFIX}help | {len(SCHEDULE)} scheduled")
     )
@@ -80,14 +77,10 @@ async def update_status():
 # --- Core Commands ---
 @bot.command(name="ask")
 async def ask(ctx, *, question: str = None):
-    """
-    Ask the Ollama model a question.
-    """
     if not question:
         return await ctx.send("Usage: `!ask <question>`")
     async with ctx.typing():
         response = await _async_call(question)
-    # Split long responses into 2000-char chunks
     if len(response) > 2000:
         for i in range(0, len(response), 2000):
             msg = await ctx.send(response[i:i+2000])
@@ -98,9 +91,6 @@ async def ask(ctx, *, question: str = None):
 
 @bot.command(name="models")
 async def list_models(ctx):
-    """
-    List available Ollama models.
-    """
     async with ctx.typing():
         try:
             resp = await asyncio.to_thread(requests.get, f"{OLLAMA_API}/api/tags", timeout=30)
@@ -115,9 +105,6 @@ async def list_models(ctx):
 
 @bot.command(name="help")
 async def help_command(ctx, command: str = None):
-    """
-    Show help information for commands.
-    """
     embed = discord.Embed(title="Robin Bot Commands", color=discord.Color.blue())
     embed.add_field(name="!ask", value="Ask the LLM a question.", inline=False)
     embed.add_field(name="!models", value="List available Ollama models.", inline=False)
@@ -125,14 +112,12 @@ async def help_command(ctx, command: str = None):
     embed.add_field(name="!define", value="Define a term.", inline=False)
     embed.add_field(name="!anime", value="Lookup anime info.", inline=False)
     embed.add_field(name="!schedule", value="View or add schedule entries.", inline=False)
+    embed.add_field(name="!news", value="Get latest news headlines.", inline=False)
     await ctx.send(embed=embed)
 
 # --- New Commands ---
 @bot.command(name="summarize")
 async def summarize(ctx, *, text: str = None):
-    """
-    Summarize the given text.
-    """
     if not text:
         return await ctx.send("Usage: `!summarize <text>`")
     prompt = f"Summarize this:\n\n{text}"
@@ -142,9 +127,6 @@ async def summarize(ctx, *, text: str = None):
 
 @bot.command(name="define")
 async def define(ctx, *, term: str = None):
-    """
-    Define a given term.
-    """
     if not term:
         return await ctx.send("Usage: `!define <term>`")
     url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{term}"
@@ -161,9 +143,6 @@ async def define(ctx, *, term: str = None):
 
 @bot.command(name="anime")
 async def anime(ctx, *, query: str = None):
-    """
-    Lookup anime details via Jikan API.
-    """
     if not query:
         return await ctx.send("Usage: `!anime <title>`")
     url = f"https://api.jikan.moe/v4/anime?q={query}"
@@ -182,9 +161,6 @@ async def anime(ctx, *, query: str = None):
 
 @bot.command(name="schedule")
 async def schedule(ctx, *, entry: str = None):
-    """
-    View or add entries to your schedule.
-    """
     global SCHEDULE
     if not entry:
         if not SCHEDULE:
@@ -193,7 +169,24 @@ async def schedule(ctx, *, entry: str = None):
     SCHEDULE.append(entry)
     await ctx.send(f"Added to schedule: {entry}")
 
-# ---- Run the Bot ----
+@bot.command(name="news")
+async def news(ctx):
+    if not NEWS_API_KEY:
+        return await ctx.send("News API key not set.")
+    url = f"https://newsapi.org/v2/top-headlines?country=us&category=sports&apiKey={NEWS_API_KEY}"
+    try:
+        response = await asyncio.to_thread(requests.get, url, timeout=10)
+        if response.status_code == 200:
+            articles = response.json().get("articles", [])[:5]
+            if not articles:
+                return await ctx.send("No news found.")
+            headlines = "\n\n".join([f"**{a['title']}**\n{a['url']}" for a in articles])
+            await ctx.send(f"📰 **Top Sports News:**\n\n{headlines}")
+        else:
+            await ctx.send(f"News fetch error: {response.status_code}")
+    except Exception as e:
+        await ctx.send(f"News error: {e}")
+
 if __name__ == "__main__":
     try:
         bot.run(DISCORD_TOKEN)
