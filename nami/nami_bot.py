@@ -6,15 +6,26 @@ Nami Bot - News, Weather, Crypto, and Daily Brief
 import os
 import discord
 from discord.ext import commands, tasks
-import requests
+from discord import Embed, ButtonStyle, SelectOption
+from discord.ui import View, Button, Select
 import logging
 from dotenv import load_dotenv
 import datetime
+import json
+import asyncio
+from .api.news import NewsAPI, NewsAPIError
+from .api.weather import WeatherAPI
+from .api.crypto import CryptoAPI
+from .db.preferences import db
+from .analytics import analytics
 
 load_dotenv()
 
 # Logging setup
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger("nami_bot")
 
 # Load environment variables
@@ -24,6 +35,59 @@ WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 DEFAULT_CITY = os.getenv("DEFAULT_CITY", "los angeles")
 DEFAULT_CRYPTO = os.getenv("DEFAULT_CRYPTO", "btc")
 DAILYBRIEF_CHANNEL_ID = int(os.getenv("DAILYBRIEF_CHANNEL_ID", 0))
+
+# Rate limiting
+RATE_LIMITS = {
+    'news': 10,  # seconds
+    'weather': 10,
+    'crypto': 5,
+    'dailybrief': 300  # 5 minutes
+}
+
+# Initialize API clients
+news_api = NewsAPI(NEWS_API_KEY)
+weather_api = WeatherAPI(WEATHER_API_KEY)
+crypto_api = CryptoAPI()
+
+# Health check
+@tasks.loop(minutes=5)
+async def health_check():
+    """Periodic health check for API endpoints"""
+    try:
+        # Check news API
+        await news_api.get_top_headlines()
+        
+        # Check weather API
+        await weather_api.get_weather(DEFAULT_CITY)
+        
+        # Check crypto API
+        await crypto_api.get_price(DEFAULT_CRYPTO)
+        
+        logger.info("All API endpoints are healthy")
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+
+# Command error handler
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send("Command not found. Use !help for available commands.")
+    elif isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"Please wait {error.retry_after:.2f}s before using this command again.")
+    else:
+        logger.error(f"Command error in {ctx.command}: {error}")
+        await ctx.send("An unexpected error occurred. Please try again later.")
+
+# Initialize rate limiting dictionaries
+bot.last_news_call = {}
+bot.last_weather_call = {}
+bot.last_crypto_call = {}
+bot.last_dailybrief_call = {}
+
+# Initialize API clients
+news_api = NewsAPI(NEWS_API_KEY)
+weather_api = WeatherAPI(WEATHER_API_KEY)
+crypto_api = CryptoAPI()
 
 COINGECKO_IDS = {
     "btc": "bitcoin",
@@ -60,81 +124,329 @@ async def scheduled_briefs():
 @bot.command(name="help")
 async def help_command(ctx):
     embed = discord.Embed(title="Nami Bot Commands", color=discord.Color.green())
-    embed.add_field(name="!news", value="Get the latest US news headlines.", inline=False)
+    embed.add_field(name="!news [keyword]", value="Get the latest US news headlines. Optional keyword search.", inline=False)
     embed.add_field(name="!weather <city>", value="Get current weather for a city.", inline=False)
     embed.add_field(name="!crypto <symbol>", value="Get current price for a crypto.", inline=False)
     embed.add_field(name="!dailybrief", value="Get top news, weather, and crypto update.", inline=False)
+    embed.add_field(name="!setprefs", value="Configure your daily brief preferences.", inline=False)
+    embed.add_field(name="!togglebrief", value="Toggle daily brief notifications.", inline=False)
     await ctx.send(embed=embed)
 
 @bot.command(name="news")
-async def news(ctx):
-    if not NEWS_API_KEY:
-        return await ctx.send("News API key not set.")
-    url = f"https://newsapi.org/v2/top-headlines?country=us&category=general&apiKey={NEWS_API_KEY}"
+async def news(ctx, *, keyword: str = None):
+    """Get top news headlines with optional keyword search"""
+    user_id = ctx.author.id
+    preferences = db.get_user_preferences(user_id)
+    
+    # Check rate limit
+    last_call = ctx.bot.last_news_call.get(user_id)
+    if last_call and (datetime.now() - last_call).total_seconds() < RATE_LIMITS['news']:
+        await ctx.send("Please wait a moment before requesting news again.")
+        return
+    ctx.bot.last_news_call[user_id] = datetime.now()
+
     try:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            articles = response.json().get("articles", [])[:5]
-            if not articles:
-                return await ctx.send("No news found.")
-            headlines = "\n\n".join([f"**{a['title']}**\n{a['url']}" for a in articles])
-            await ctx.send(f"📰 **Top News:**\n\n{headlines}")
+        # Use user's preferred sources if set
+        sources = preferences.get('preferred_sources')
+        if sources:
+            embeds, total_results = await news_api.get_article_by_source(sources, keyword=keyword)
         else:
-            await ctx.send(f"News fetch error: {response.status_code}")
+            embeds, total_results = await news_api.get_top_headlines(keyword=keyword)
+
+        if not embeds:
+            await ctx.send("No news articles found.")
+            return
+
+        # Create pagination if more than 5 articles
+        if total_results > 5:
+            class NewsPagination(View):
+                def __init__(self, embeds):
+                    super().__init__(timeout=60)
+                    self.embeds = embeds
+                    self.current_page = 0
+                    self.message = None
+
+                @discord.ui.button(label="Previous", style=ButtonStyle.primary)
+                async def previous(self, interaction: discord.Interaction, button: Button):
+                    if self.current_page > 0:
+                        self.current_page -= 1
+                        await self.message.edit(embed=self.embeds[self.current_page])
+
+                @discord.ui.button(label="Next", style=ButtonStyle.primary)
+                async def next(self, interaction: discord.Interaction, button: Button):
+                    if self.current_page < len(self.embeds) - 1:
+                        self.current_page += 1
+                        await self.message.edit(embed=self.embeds[self.current_page])
+
+            view = NewsPagination(embeds)
+            view.message = await ctx.send(embed=embeds[0], view=view)
+            await ctx.send(f"Found {total_results} articles. Use buttons to navigate.")
+        else:
+            # Send articles as Discord embeds
+            for embed in embeds:
+                await ctx.send(embed=embed)
+
+        # Log command usage
+        analytics.log_command("news", user_id)
+        
+    except NewsAPIError as e:
+        analytics.log_error("news", str(e), user_id)
+        await ctx.send(f"Error fetching news: {e}")
     except Exception as e:
-        await ctx.send(f"News error: {e}")
+        logger.error(f"Unexpected error in news command: {e}")
+        analytics.log_error("news", str(e), user_id)
+        await ctx.send("An unexpected error occurred while fetching news.")
 
 @bot.command(name="weather")
 async def weather(ctx, *, city: str = None):
-    if not WEATHER_API_KEY:
-        return await ctx.send("Weather API key not set.")
-    if not city:
-        city = DEFAULT_CITY
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=imperial"
+    """Get current weather for a city"""
+    user_id = ctx.author.id
+    preferences = db.get_user_preferences(user_id)
+    
+    # Check rate limit
+    last_call = ctx.bot.last_weather_call.get(user_id)
+    if last_call and (datetime.now() - last_call).total_seconds() < RATE_LIMITS['weather']:
+        await ctx.send("Please wait a moment before requesting weather again.")
+        return
+    ctx.bot.last_weather_call[user_id] = datetime.now()
+
     try:
-        res = requests.get(url, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            name = data['name']
-            temp = data['main']['temp']
-            desc = data['weather'][0]['description'].capitalize()
-            await ctx.send(f"🌤 **{name}**: {temp}°F, {desc}")
-        else:
-            await ctx.send(f"Weather fetch error: {res.status_code}")
+        if not city:
+            city = preferences.get('preferred_location', DEFAULT_CITY)
+        weather_data = await weather_api.get_weather(city)
+        
+        embed = Embed(
+            title=f"Weather in {weather_data['name']}",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Temperature", value=f"{weather_data['main']['temp']}°F", inline=True)
+        embed.add_field(name="Description", value=weather_data['weather'][0]['description'].capitalize(), inline=True)
+        embed.add_field(name="Humidity", value=f"{weather_data['main']['humidity']}%", inline=True)
+        embed.add_field(name="Wind", value=f"{weather_data['wind']['speed']} mph", inline=True)
+        
+        if 'weather' in weather_data and 'icon' in weather_data['weather'][0]:
+            icon_url = f"http://openweathermap.org/img/wn/{weather_data['weather'][0]['icon']}@2x.png"
+            embed.set_thumbnail(url=icon_url)
+        
+        await ctx.send(embed=embed)
+        
+        # Log command usage
+        analytics.log_command("weather", user_id)
+        
     except Exception as e:
-        await ctx.send(f"Weather error: {e}")
+        logger.error(f"Weather error for user {user_id}: {str(e)}")
+        analytics.log_error("weather", str(e), user_id)
+        await ctx.send(f"Error fetching weather: {str(e)}")
+        else:
 
 @bot.command(name="crypto")
 async def crypto(ctx, symbol: str = None):
-    if not symbol:
-        symbol = DEFAULT_CRYPTO
-    symbol = symbol.lower()
-    coingecko_id = COINGECKO_IDS.get(symbol)
+    """Get current cryptocurrency price"""
+    user_id = ctx.author.id
+    preferences = db.get_user_preferences(user_id)
+    
+    # Check rate limit
+    last_call = ctx.bot.last_crypto_call.get(user_id)
+    if last_call and (datetime.now() - last_call).total_seconds() < RATE_LIMITS['crypto']:
+        await ctx.send("Please wait a moment before requesting crypto prices again.")
+        return
+    ctx.bot.last_crypto_call[user_id] = datetime.now()
 
-    if not coingecko_id:
-        return await ctx.send(f"❌ Unknown crypto symbol: `{symbol}`")
-
-    url = f"https://api.coingecko.com/api/v3/simple/price?ids={coingecko_id}&vs_currencies=usd"
     try:
-        res = requests.get(url, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            price = data.get(coingecko_id, {}).get("usd")
-            if price is not None:
-                await ctx.send(f"📈 **{symbol.upper()}**: ${price:,.2f}")
-            else:
-                await ctx.send(f"Symbol '{symbol}' not found.")
-        else:
-            await ctx.send(f"Crypto fetch error: {res.status_code}")
+        if not symbol:
+            symbol = preferences.get('preferred_crypto', DEFAULT_CRYPTO)
+        symbol = symbol.lower()
+        
+        price_data = await crypto_api.get_price(symbol)
+        if not price_data:
+            await ctx.send(f"Unknown cryptocurrency symbol: {symbol}")
+            return
+            
+        embed = Embed(
+            title=f"{symbol.upper()} Price",
+            color=discord.Color.gold()
+        )
+        embed.add_field(name="Price", value=f"${price_data['usd']:,.2f}", inline=True)
+        embed.add_field(name="24h Change", value=f"{price_data['usd_24h_change']:.2f}%", inline=True)
+        embed.set_footer(text="Data from CoinGecko")
+        
+        await ctx.send(embed=embed)
+        
+        # Log command usage
+        analytics.log_command("crypto", user_id)
+        
     except Exception as e:
-        await ctx.send(f"Crypto error: {e}")
+        logger.error(f"Crypto error for user {user_id}: {str(e)}")
+        analytics.log_error("crypto", str(e), user_id)
+        await ctx.send(f"Error fetching crypto data: {str(e)}")
 
 @bot.command(name="dailybrief")
 async def dailybrief(ctx):
-    await ctx.send("☀️ Here's your Daily Brief...")
-    await news(ctx)
-    await weather(ctx)
-    await crypto(ctx)
+    """Get a comprehensive daily update with news, weather, and crypto"""
+    user_id = ctx.author.id
+    preferences = db.get_user_preferences(user_id)
+    
+    # Check rate limit
+    last_call = ctx.bot.last_dailybrief_call.get(user_id)
+    if last_call and (datetime.now() - last_call).total_seconds() < RATE_LIMITS['dailybrief']:
+        await ctx.send("Please wait a few minutes before requesting another daily brief.")
+        return
+    ctx.bot.last_dailybrief_call[user_id] = datetime.now()
+
+    try:
+        # Get news
+        sources = preferences.get('preferred_sources')
+        embeds, _ = await news_api.get_top_headlines() if not sources else await news_api.get_article_by_source(sources)
+        await ctx.send("📰 **Top News:**", embeds=embeds)
+        
+        # Get weather
+        city = preferences.get('preferred_location', DEFAULT_CITY)
+        weather_data = await weather_api.get_weather(city)
+        weather_embed = Embed(
+            title=f"Weather in {city}",
+            color=discord.Color.blue()
+        )
+        weather_embed.add_field(name="Temperature", value=f"{weather_data['main']['temp']}°F", inline=True)
+        weather_embed.add_field(name="Description", value=weather_data['weather'][0]['description'].capitalize(), inline=True)
+        await ctx.send("🌤 **Weather Update:**", embed=weather_embed)
+        
+        # Get crypto
+        crypto = preferences.get('preferred_crypto', DEFAULT_CRYPTO)
+        crypto_data = await crypto_api.get_price(crypto)
+        crypto_embed = Embed(
+            title=f"{crypto.upper()} Price",
+            color=discord.Color.gold()
+        )
+        crypto_embed.add_field(name="Price", value=f"${crypto_data['usd']:,.2f}", inline=True)
+        crypto_embed.add_field(name="24h Change", value=f"{crypto_data['usd_24h_change']:.2f}%", inline=True)
+        await ctx.send("💰 **Crypto Update:**", embed=crypto_embed)
+        
+        # Log command usage
+        analytics.log_command("dailybrief", user_id)
+        
+    except Exception as e:
+        logger.error(f"Daily brief error for user {user_id}: {str(e)}")
+        analytics.log_error("dailybrief", str(e), user_id)
+        await ctx.send(f"Error generating daily brief: {str(e)}")
+
+@bot.command(name="stats")
+@commands.is_owner()
+async def stats(ctx):
+    """Get bot analytics and statistics"""
+    try:
+        report = await analytics.generate_report()
+        
+        embed = Embed(
+            title="📊 Bot Statistics",
+            color=discord.Color.blue()
+        )
+        
+        embed.add_field(name="Total Commands Used", value=str(report['total_commands']), inline=True)
+        embed.add_field(name="Total Errors", value=str(report['total_errors']), inline=True)
+        embed.add_field(name="Active Users", value=str(report['user_count']), inline=True)
+        
+        top_commands = "\n".join([f"{cmd}: {count}" for cmd, count in report['top_commands'].items()])
+        embed.add_field(name="Top Commands", value=top_commands, inline=False)
+        
+        error_rates = "\n".join([f"{cmd}: {rate}" for cmd, rate in report['error_rates'].items()])
+        embed.add_field(name="Error Rates", value=error_rates, inline=False)
+        
+        await ctx.send(embed=embed)
+        
+    except Exception as e:
+        logger.error(f"Stats error: {str(e)}")
+        await ctx.send("Error generating statistics report.")
+
+@bot.command(name="setprefs")
+async def set_preferences(ctx):
+    """Configure your daily brief preferences"""
+    user_id = ctx.author.id
+    
+    class PreferencesView(View):
+        def __init__(self):
+            super().__init__(timeout=300)
+            self.user_id = user_id
+            self.preferences = db.get_user_preferences(user_id)
+
+        @discord.ui.select(
+            placeholder="Select your preferred news sources",
+            options=[
+                SelectOption(label="BBC", value="bbc-news"),
+                SelectOption(label="CNN", value="cnn"),
+                SelectOption(label="The New York Times", value="the-new-york-times"),
+                SelectOption(label="Reuters", value="reuters"),
+                SelectOption(label="All Sources", value="all")
+            ]
+        )
+        async def select_sources(self, interaction: discord.Interaction, select: Select):
+            self.preferences['preferred_sources'] = json.dumps(select.values)
+            db.set_user_preferences(self.user_id, self.preferences)
+            await interaction.response.send_message("News sources updated!", ephemeral=True)
+
+        @discord.ui.select(
+            placeholder="Select your preferred crypto",
+            options=[
+                SelectOption(label="Bitcoin", value="btc"),
+                SelectOption(label="Ethereum", value="eth"),
+                SelectOption(label="Solana", value="sol"),
+                SelectOption(label="Dogecoin", value="doge")
+            ]
+        )
+        async def select_crypto(self, interaction: discord.Interaction, select: Select):
+            self.preferences['preferred_crypto'] = select.values[0]
+            db.set_user_preferences(self.user_id, self.preferences)
+            await interaction.response.send_message("Crypto preference updated!", ephemeral=True)
+
+        @discord.ui.select(
+            placeholder="Select your preferred location",
+            options=[
+                SelectOption(label="Los Angeles", value="los angeles"),
+                SelectOption(label="New York", value="new york"),
+                SelectOption(label="London", value="london"),
+                SelectOption(label="Tokyo", value="tokyo"),
+                SelectOption(label="Custom", value="custom")
+            ]
+        )
+        async def select_location(self, interaction: discord.Interaction, select: Select):
+            if select.values[0] == "custom":
+                await interaction.response.send_message("Please enter your custom location:")
+                try:
+                    msg = await bot.wait_for('message', 
+                                          check=lambda m: m.author == ctx.author,
+                                          timeout=30)
+                    self.preferences['preferred_location'] = msg.content
+                    db.set_user_preferences(self.user_id, self.preferences)
+                    await msg.reply("Location preference updated!")
+                except asyncio.TimeoutError:
+                    await interaction.followup.send("Timeout! Please try again.")
+            else:
+                self.preferences['preferred_location'] = select.values[0]
+                db.set_user_preferences(self.user_id, self.preferences)
+                await interaction.response.send_message("Location preference updated!", ephemeral=True)
+
+    view = PreferencesView()
+    embed = Embed(
+        title="⚙️ Configure Your Preferences",
+        description="Select your preferences for daily brief updates",
+        color=discord.Color.blurple()
+    )
+    await ctx.send(embed=embed, view=view)
+
+@bot.command(name="togglebrief")
+async def toggle_daily_brief(ctx):
+    """Toggle daily brief notifications"""
+    user_id = ctx.author.id
+    current_status = db.get_user_preferences(user_id).get('brief_enabled', True)
+    new_status = not current_status
+    db.toggle_daily_brief(user_id, new_status)
+    
+    status_text = "enabled" if new_status else "disabled"
+    await ctx.send(f"Daily brief notifications have been {status_text}.")
+
+# Initialize rate limiting dictionaries
+bot.last_news_call = {}
+bot.last_weather_call = {}
+bot.last_crypto_call = {}
 
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
