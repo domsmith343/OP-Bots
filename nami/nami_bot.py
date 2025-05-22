@@ -237,7 +237,6 @@ async def weather(ctx, *, city: str = None):
         logger.error(f"Weather error for user {user_id}: {str(e)}")
         analytics.log_error("weather", str(e), user_id)
         await ctx.send(f"Error fetching weather: {str(e)}")
-        else:
 
 @bot.command(name="crypto")
 async def crypto(ctx, symbol: str = None):
