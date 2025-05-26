@@ -21,6 +21,13 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 .summarize <text>       # Summarize any input
 ```
 
+**Slash Commands**
+```
+/stats [time_period]    # Show command usage statistics
+/userstats [user]       # Show user-specific stats
+/errorstats            # Show command error statistics
+```
+
 > Prefix: `.` (dot)
 
 ---
@@ -34,6 +41,17 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 !weather <city>         # Current conditions (OpenWeather)
 !crypto <symbol>        # Crypto price via CoinGecko
 !dailybrief [city]      # News + Weather + Crypto
+```
+
+**Slash Commands**
+```
+/games <league> [days]  # Show upcoming games
+/scores <league>        # Show live scores
+/subscribe <league> [team]  # Subscribe to game alerts
+
+/schedule <channel> <time> [timezone] [type]  # Schedule briefings
+/unschedule <channel>   # Remove scheduled briefing
+/briefings             # List all scheduled briefings
 ```
 
 > Prefix: `!` (bang)
@@ -80,14 +98,18 @@ Both bots will launch in the background and connect to your Discord server.
 
 ## ✨ Features To Implement
 
-- [ ] Slash command support
-- [ ] Game + sports alerts (MLB, NBA, NFL)
-- [ ] Scheduled briefings (every morning)
 - [ ] Voice transcription with Whisper
 - [ ] Private DM sessions
 - [ ] Dictionary lookup command
 - [ ] Anime info command
 - [ ] Personal reminders system
+
+## ✅ Implemented Features
+
+- [x] Slash command support
+- [x] Game + sports alerts (MLB, NBA, NFL)
+- [x] Scheduled briefings (daily/weekly/monthly)
+- [x] Embedded summaries + rich card formatting
 
 ---
 
