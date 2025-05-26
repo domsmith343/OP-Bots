@@ -1,5 +1,6 @@
 import requests
-from typing import Dict, Optional
+import asyncio
+from typing import Dict, Optional, List
 from dotenv import load_dotenv
 import os
 from datetime import datetime

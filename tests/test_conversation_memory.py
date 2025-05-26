@@ -1,6 +1,6 @@
 import pytest
-from utils.conversation_memory import ConversationMemory
-from utils.database import Database
+from robin.utils.conversation_memory import ConversationMemory
+from robin.utils.database import Database
 import os
 import tempfile
 from datetime import datetime, timedelta
