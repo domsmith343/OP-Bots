@@ -10,14 +10,14 @@ from discord import Embed, ButtonStyle, SelectOption
 from discord.ui import View, Button, Select
 import logging
 from dotenv import load_dotenv
-import datetime
 import json
 import asyncio
-from .api.news import NewsAPI, NewsAPIError
-from .api.weather import WeatherAPI
-from .api.crypto import CryptoAPI
-from .db.preferences import db
-from .analytics import analytics
+from datetime import datetime
+from api.news import NewsAPI, NewsAPIError
+from api.weather import WeatherAPI
+from api.crypto import CryptoAPI
+from db.preferences import PreferencesDB
+from analytics import analytics
 
 load_dotenv()
 
@@ -48,6 +48,18 @@ RATE_LIMITS = {
 news_api = NewsAPI(NEWS_API_KEY)
 weather_api = WeatherAPI(WEATHER_API_KEY)
 crypto_api = CryptoAPI()
+db = PreferencesDB()
+
+# Discord bot setup
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
+
+# Initialize rate limiting dictionaries
+bot.last_news_call = {}
+bot.last_weather_call = {}
+bot.last_crypto_call = {}
+bot.last_dailybrief_call = {}
 
 # Health check
 @tasks.loop(minutes=5)
@@ -78,17 +90,6 @@ async def on_command_error(ctx, error):
         logger.error(f"Command error in {ctx.command}: {error}")
         await ctx.send("An unexpected error occurred. Please try again later.")
 
-# Initialize rate limiting dictionaries
-bot.last_news_call = {}
-bot.last_weather_call = {}
-bot.last_crypto_call = {}
-bot.last_dailybrief_call = {}
-
-# Initialize API clients
-news_api = NewsAPI(NEWS_API_KEY)
-weather_api = WeatherAPI(WEATHER_API_KEY)
-crypto_api = CryptoAPI()
-
 COINGECKO_IDS = {
     "btc": "bitcoin",
     "eth": "ethereum",
@@ -99,11 +100,6 @@ COINGECKO_IDS = {
     "ltc": "litecoin"
 }
 
-# Discord bot setup
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
-
 @bot.event
 async def on_ready():
     logger.info(f"{bot.user.name} is online!")
@@ -112,7 +108,7 @@ async def on_ready():
 
 @tasks.loop(minutes=1)
 async def scheduled_briefs():
-    now = datetime.datetime.now().strftime('%H:%M')
+    now = datetime.now().strftime('%H:%M')
     if now in ["08:00", "14:00", "20:00"]:
         channel = bot.get_channel(DAILYBRIEF_CHANNEL_ID)
         if channel:
@@ -441,11 +437,6 @@ async def toggle_daily_brief(ctx):
     
     status_text = "enabled" if new_status else "disabled"
     await ctx.send(f"Daily brief notifications have been {status_text}.")
-
-# Initialize rate limiting dictionaries
-bot.last_news_call = {}
-bot.last_weather_call = {}
-bot.last_crypto_call = {}
 
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
