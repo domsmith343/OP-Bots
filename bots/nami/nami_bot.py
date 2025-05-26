@@ -113,15 +113,53 @@ async def scheduled_briefs():
     if now in ["08:00", "14:00", "20:00"]:
         channel = bot.get_channel(DAILYBRIEF_CHANNEL_ID)
         if channel:
-            await channel.send("☀️ Here's your scheduled Daily Brief:")
-            await news(channel)
-            await weather(channel)
-            await crypto(channel)
+            try:
+                # Get news
+                embeds, _ = await news_api.get_top_headlines()
+                await channel.send("☀️ Here's your scheduled Daily Brief:")
+                await channel.send("📰 **Top News:**", embeds=embeds)
+                
+                # Get weather
+                weather_data = await weather_api.get_current_weather(DEFAULT_CITY)
+                weather_embed = Embed(
+                    title=f"Weather in {DEFAULT_CITY}",
+                    color=discord.Color.blue()
+                )
+                weather_embed.add_field(name="Temperature", value=f"{weather_data['temperature']}°F", inline=True)
+                weather_embed.add_field(name="Description", value=weather_data['description'], inline=True)
+                await channel.send("🌤 **Weather Update:**", embed=weather_embed)
+                
+                # Get crypto (always BTC)
+                btc_data = await crypto_api.get_price('btc')
+                if btc_data and isinstance(btc_data, dict):
+                    logger.info(f"Crypto data for BTC: {btc_data}")
+                    price = btc_data.get('price')
+                    change = btc_data.get('change_24h')
+                    if price is not None and change is not None:
+                        crypto_embed = Embed(
+                            title="BTC Price",
+                            color=discord.Color.gold()
+                        )
+                        crypto_embed.add_field(name="Price", value=f"${price:,.2f}", inline=True)
+                        crypto_embed.add_field(name="24h Change", value=f"{change:.2f}%", inline=True)
+                        await channel.send("💰 **Crypto Update:**", embed=crypto_embed)
+                    else:
+                        await channel.send(f"Unable to fetch full BTC price data (missing 'price' or 'change_24h'). Raw data: {btc_data}")
+                else:
+                    await channel.send(f"Unable to fetch BTC price data at the moment. Raw data: {btc_data}")
+                
+            except Exception as e:
+                logger.error(f"Error in scheduled brief: {str(e)}")
+                await channel.send(f"Error generating daily brief: {str(e)}")
 
 @bot.command(name="help")
 async def help_command(ctx):
     embed = discord.Embed(title="Nami Bot Commands", color=discord.Color.green())
-    embed.add_field(name="!news [keyword]", value="Get the latest US news headlines. Optional keyword search.", inline=False)
+    embed.add_field(
+        name="!news [category] [keyword]", 
+        value="Get the latest US news headlines.\nCategories: general, sports, business, technology, entertainment, health, science\nExample: !news sports basketball", 
+        inline=False
+    )
     embed.add_field(name="!weather <city>", value="Get current weather for a city.", inline=False)
     embed.add_field(name="!crypto <symbol>", value="Get current price for a crypto.", inline=False)
     embed.add_field(name="!dailybrief", value="Get top news, weather, and crypto update.", inline=False)
@@ -130,8 +168,10 @@ async def help_command(ctx):
     await ctx.send(embed=embed)
 
 @bot.command(name="news")
-async def news(ctx, *, keyword: str = None):
-    """Get top news headlines with optional keyword search"""
+async def news(ctx, category: str = None, *, keyword: str = None):
+    """Get top news headlines with optional category and keyword search
+    Categories: general, sports, business, technology, entertainment, health, science
+    """
     user_id = ctx.author.id
     preferences = db.get_user_preferences(user_id)
     
@@ -148,7 +188,16 @@ async def news(ctx, *, keyword: str = None):
         if sources and sources != "all":
             embeds, total_results = await news_api.get_article_by_source(sources, keyword=keyword)
         else:
-            embeds, total_results = await news_api.get_top_headlines(keyword=keyword)
+            # Validate category if provided
+            valid_categories = ['general', 'sports', 'business', 'technology', 'entertainment', 'health', 'science']
+            if category and category.lower() not in valid_categories:
+                await ctx.send(f"Invalid category. Valid categories are: {', '.join(valid_categories)}")
+                return
+                
+            embeds, total_results = await news_api.get_top_headlines(
+                category=category.lower() if category else 'general',
+                keyword=keyword
+            )
 
         if not embeds:
             await ctx.send("No news articles found.")
@@ -264,8 +313,8 @@ async def crypto(ctx, symbol: str = None):
             title=f"{symbol.upper()} Price",
             color=discord.Color.gold()
         )
-        embed.add_field(name="Price", value=f"${price_data['usd']:,.2f}", inline=True)
-        embed.add_field(name="24h Change", value=f"{price_data['usd_24h_change']:.2f}%", inline=True)
+        embed.add_field(name="Price", value=f"${price_data['price']:,.2f}", inline=True)
+        embed.add_field(name="24h Change", value=f"{price_data['change_24h']:.2f}%", inline=True)
         embed.set_footer(text="Data from CoinGecko")
         
         await ctx.send(embed=embed)
@@ -294,8 +343,17 @@ async def dailybrief(ctx):
     try:
         # Get news
         sources = preferences.get('preferred_sources')
-        embeds, _ = await news_api.get_top_headlines() if not sources else await news_api.get_article_by_source(sources)
-        await ctx.send("📰 **Top News:**", embeds=embeds)
+        if sources and sources != "all":
+            embeds, _ = await news_api.get_article_by_source(sources)
+        else:
+            embeds, _ = await news_api.get_top_headlines()
+            
+        if embeds:
+            await ctx.send("📰 **Top News:**")
+            for embed in embeds[:5]:  # Limit to top 5 articles
+                await ctx.send(embed=embed)
+        else:
+            await ctx.send("No news articles available at the moment.")
         
         # Get weather
         city = preferences.get('preferred_location', DEFAULT_CITY)
@@ -308,16 +366,24 @@ async def dailybrief(ctx):
         weather_embed.add_field(name="Description", value=weather_data['description'], inline=True)
         await ctx.send("🌤 **Weather Update:**", embed=weather_embed)
         
-        # Get crypto
-        crypto = preferences.get('preferred_crypto', DEFAULT_CRYPTO)
-        crypto_data = await crypto_api.get_price(crypto)
-        crypto_embed = Embed(
-            title=f"{crypto.upper()} Price",
-            color=discord.Color.gold()
-        )
-        crypto_embed.add_field(name="Price", value=f"${crypto_data['usd']:,.2f}", inline=True)
-        crypto_embed.add_field(name="24h Change", value=f"{crypto_data['usd_24h_change']:.2f}%", inline=True)
-        await ctx.send("💰 **Crypto Update:**", embed=crypto_embed)
+        # Get crypto (always BTC)
+        btc_data = await crypto_api.get_price('btc')
+        if btc_data and isinstance(btc_data, dict):
+            logger.info(f"Crypto data for BTC: {btc_data}")
+            price = btc_data.get('price')
+            change = btc_data.get('change_24h')
+            if price is not None and change is not None:
+                crypto_embed = Embed(
+                    title="BTC Price",
+                    color=discord.Color.gold()
+                )
+                crypto_embed.add_field(name="Price", value=f"${price:,.2f}", inline=True)
+                crypto_embed.add_field(name="24h Change", value=f"{change:.2f}%", inline=True)
+                await ctx.send("💰 **Crypto Update:**", embed=crypto_embed)
+            else:
+                await ctx.send(f"Unable to fetch full BTC price data (missing 'price' or 'change_24h'). Raw data: {btc_data}")
+        else:
+            await ctx.send(f"Unable to fetch BTC price data at the moment. Raw data: {btc_data}")
         
         # Log command usage
         analytics.log_command("dailybrief", user_id)
