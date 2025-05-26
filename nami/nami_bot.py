@@ -209,19 +209,19 @@ async def weather(ctx, *, city: str = None):
     try:
         if not city:
             city = preferences.get('preferred_location', DEFAULT_CITY)
-        weather_data = await weather_api.get_weather(city)
+        weather_data = await weather_api.get_current_weather(city)
         
         embed = Embed(
             title=f"Weather in {weather_data['name']}",
             color=discord.Color.blue()
         )
-        embed.add_field(name="Temperature", value=f"{weather_data['main']['temp']}°F", inline=True)
-        embed.add_field(name="Description", value=weather_data['weather'][0]['description'].capitalize(), inline=True)
-        embed.add_field(name="Humidity", value=f"{weather_data['main']['humidity']}%", inline=True)
-        embed.add_field(name="Wind", value=f"{weather_data['wind']['speed']} mph", inline=True)
+        embed.add_field(name="Temperature", value=f"{weather_data['temperature']}°F", inline=True)
+        embed.add_field(name="Description", value=weather_data['description'], inline=True)
+        embed.add_field(name="Humidity", value=f"{weather_data['humidity']}%", inline=True)
+        embed.add_field(name="Wind", value=f"{weather_data['wind_speed']} mph", inline=True)
         
-        if 'weather' in weather_data and 'icon' in weather_data['weather'][0]:
-            icon_url = f"http://openweathermap.org/img/wn/{weather_data['weather'][0]['icon']}@2x.png"
+        if 'icon' in weather_data:
+            icon_url = f"http://openweathermap.org/img/wn/{weather_data['icon']}@2x.png"
             embed.set_thumbnail(url=icon_url)
         
         await ctx.send(embed=embed)

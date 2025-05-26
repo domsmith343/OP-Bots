@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 import asyncio
 from discord import Embed
+import json
 
 load_dotenv()
 
@@ -29,10 +30,19 @@ class NewsAPI:
         self.session = requests.Session()
         self.session.headers.update({"X-Api-Key": self.api_key})
         self._last_rate_limit_error = None
+        self._cache = {}
 
-    @lru_cache(maxsize=128)
     async def _get_cached(self, url: str, params: Dict) -> Dict:
         """Internal method to handle caching and rate limiting"""
+        # Create a cache key from the URL and sorted params
+        cache_key = f"{url}:{json.dumps(params, sort_keys=True)}"
+        
+        # Check if we have a cached response
+        if cache_key in self._cache:
+            cached_data, timestamp = self._cache[cache_key]
+            if datetime.now() - timestamp < timedelta(seconds=CACHE_TIMEOUT):
+                return cached_data
+        
         try:
             response = await asyncio.to_thread(self.session.get, url, params=params, timeout=10)
             response.raise_for_status()
@@ -40,7 +50,9 @@ class NewsAPI:
             
             if data["status"] != "ok":
                 raise NewsAPIError(f"API Error: {data.get('message', 'Unknown error')}")
-                
+            
+            # Cache the response
+            self._cache[cache_key] = (data, datetime.now())
             return data
             
         except requests.RequestException as e:
