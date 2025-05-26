@@ -18,6 +18,7 @@ from api.weather import WeatherAPI
 from api.crypto import CryptoAPI
 from db.preferences import PreferencesDB
 from analytics import analytics
+from typing import List
 
 load_dotenv()
 
@@ -298,13 +299,13 @@ async def dailybrief(ctx):
         
         # Get weather
         city = preferences.get('preferred_location', DEFAULT_CITY)
-        weather_data = await weather_api.get_weather(city)
+        weather_data = await weather_api.get_current_weather(city)
         weather_embed = Embed(
             title=f"Weather in {city}",
             color=discord.Color.blue()
         )
-        weather_embed.add_field(name="Temperature", value=f"{weather_data['main']['temp']}°F", inline=True)
-        weather_embed.add_field(name="Description", value=weather_data['weather'][0]['description'].capitalize(), inline=True)
+        weather_embed.add_field(name="Temperature", value=f"{weather_data['temperature']}°F", inline=True)
+        weather_embed.add_field(name="Description", value=weather_data['description'], inline=True)
         await ctx.send("🌤 **Weather Update:**", embed=weather_embed)
         
         # Get crypto
@@ -440,6 +441,45 @@ async def toggle_daily_brief(ctx):
     
     status_text = "enabled" if new_status else "disabled"
     await ctx.send(f"Daily brief notifications have been {status_text}.")
+
+class NewsPagination(discord.ui.View):
+    def __init__(self, embeds: List[discord.Embed], timeout: int = 180):
+        super().__init__(timeout=timeout)
+        self.embeds = embeds
+        self.current_page = 0
+        self.total_pages = len(embeds)
+        
+        # Update button states
+        self.update_buttons()
+    
+    def update_buttons(self):
+        """Update button states based on current page"""
+        self.previous_button.disabled = self.current_page == 0
+        self.next_button.disabled = self.current_page == self.total_pages - 1
+    
+    @discord.ui.button(label="Previous", style=ButtonStyle.primary)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            await interaction.response.defer()
+            if self.current_page > 0:
+                self.current_page -= 1
+                self.update_buttons()
+                await interaction.message.edit(embed=self.embeds[self.current_page], view=self)
+        except Exception as e:
+            logger.error(f"Error in previous button: {e}")
+            await interaction.followup.send("Failed to load previous article. Please try again.", ephemeral=True)
+    
+    @discord.ui.button(label="Next", style=ButtonStyle.primary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            await interaction.response.defer()
+            if self.current_page < self.total_pages - 1:
+                self.current_page += 1
+                self.update_buttons()
+                await interaction.message.edit(embed=self.embeds[self.current_page], view=self)
+        except Exception as e:
+            logger.error(f"Error in next button: {e}")
+            await interaction.followup.send("Failed to load next article. Please try again.", ephemeral=True)
 
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
