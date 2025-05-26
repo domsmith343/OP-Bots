@@ -7,8 +7,12 @@ from functools import lru_cache
 import asyncio
 from discord import Embed
 import json
+import logging
 
 load_dotenv()
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 CACHE_TIMEOUT = 300  # 5 minutes in seconds
@@ -44,9 +48,13 @@ class NewsAPI:
                 return cached_data
         
         try:
+            logger.info(f"Making request to {url} with params: {params}")
             response = await asyncio.to_thread(self.session.get, url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
+            
+            logger.info(f"API Response status: {data.get('status')}")
+            logger.info(f"Total results: {data.get('totalResults')}")
             
             if data["status"] != "ok":
                 raise NewsAPIError(f"API Error: {data.get('message', 'Unknown error')}")
@@ -80,6 +88,8 @@ class NewsAPI:
             articles = data["articles"]
             total_results = data["totalResults"]
             
+            logger.info(f"Found {len(articles)} articles")
+            
             # Format articles into Discord embeds
             embeds = []
             for article in articles[:5]:  # Limit to top 5
@@ -87,7 +97,7 @@ class NewsAPI:
                     title=article["title"],
                     url=article["url"],
                     description=article.get("description", "No description available"),
-                    timestamp=datetime.fromisoformat(article["publishedAt"]["T"])
+                    timestamp=datetime.fromisoformat(article["publishedAt"].replace("Z", "+00:00"))
                 )
                 if article.get("urlToImage"):
                     embed.set_image(url=article["urlToImage"])
@@ -107,18 +117,19 @@ class NewsAPI:
         Get articles from a specific source with optional keyword search
         Returns a tuple of (articles, total_results)
         """
-        url = f"{self.base_url}/everything"
+        url = f"{self.base_url}/top-headlines"
         params = {
             "sources": source,
-            "q": keyword if keyword else None,
             "language": "en",
-            "sortBy": "publishedAt"
+            "q": keyword if keyword else None
         }
         
         try:
             data = await self._get_cached(url, params)
             articles = data["articles"]
             total_results = data["totalResults"]
+            
+            logger.info(f"Found {len(articles)} articles from source {source}")
             
             # Format articles into Discord embeds
             embeds = []
@@ -127,7 +138,7 @@ class NewsAPI:
                     title=article["title"],
                     url=article["url"],
                     description=article.get("description", "No description available"),
-                    timestamp=datetime.fromisoformat(article["publishedAt"]["T"])
+                    timestamp=datetime.fromisoformat(article["publishedAt"].replace("Z", "+00:00"))
                 )
                 if article.get("urlToImage"):
                     embed.set_image(url=article["urlToImage"])

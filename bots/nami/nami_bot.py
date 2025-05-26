@@ -164,12 +164,14 @@ async def news(ctx, *, keyword: str = None):
 
                 @discord.ui.button(label="Previous", style=ButtonStyle.primary)
                 async def previous(self, interaction: discord.Interaction, button: Button):
+                    await interaction.response.defer()
                     if self.current_page > 0:
                         self.current_page -= 1
                         await self.message.edit(embed=self.embeds[self.current_page])
 
                 @discord.ui.button(label="Next", style=ButtonStyle.primary)
                 async def next(self, interaction: discord.Interaction, button: Button):
+                    await interaction.response.defer()
                     if self.current_page < len(self.embeds) - 1:
                         self.current_page += 1
                         await self.message.edit(embed=self.embeds[self.current_page])
