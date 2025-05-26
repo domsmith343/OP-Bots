@@ -142,9 +142,9 @@ async def news(ctx, *, keyword: str = None):
     ctx.bot.last_news_call[user_id] = datetime.now()
 
     try:
-        # Use user's preferred sources if set
+        # Use user's preferred sources if set and not "all"
         sources = preferences.get('preferred_sources')
-        if sources:
+        if sources and sources != "all":
             embeds, total_results = await news_api.get_article_by_source(sources, keyword=keyword)
         else:
             embeds, total_results = await news_api.get_top_headlines(keyword=keyword)
