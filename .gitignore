@@ -24,3 +24,14 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated data and files
+data/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.csv
+*.json
+!package.json
+!package-lock.json

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from robin.utils.usage_tracker import UsageTracker
 from robin.utils.database import Database
 import os
+import time
 
 @pytest.fixture
 def db():
@@ -13,6 +14,16 @@ def db():
 @pytest.fixture
 def tracker(db):
     return UsageTracker(db)
+
+@pytest.fixture
+def usage_tracker():
+    # Use a test database
+    db_path = "test_usage.db"
+    tracker = UsageTracker(db_path)
+    yield tracker
+    # Clean up after tests
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
 def test_track_command(tracker):
     """Test tracking a successful command usage"""
@@ -130,4 +141,171 @@ def test_multiple_users(tracker):
     # Check user2 stats
     user2_stats = tracker.get_user_stats(987654321)
     assert len(user2_stats) == 1
-    assert sum(stat["total_uses"] for stat in user2_stats) == 1 
+    assert sum(stat["total_uses"] for stat in user2_stats) == 1
+
+def test_log_command(usage_tracker):
+    """Test logging command usage"""
+    # Log a successful command
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.5
+    )
+    
+    # Log a failed command
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=False,
+        error_message="Test error",
+        execution_time=0.3
+    )
+    
+    # Get stats
+    stats = usage_tracker.get_command_stats()
+    
+    # Check stats
+    assert "test_command" in stats
+    assert stats["test_command"]["total_uses"] == 2
+    assert stats["test_command"]["successful_uses"] == 1
+    assert stats["test_command"]["success_rate"] == 50.0
+    assert 0.3 <= stats["test_command"]["avg_execution_time"] <= 0.5
+
+def test_get_command_stats_time_period(usage_tracker):
+    """Test getting command stats with time period"""
+    # Log commands at different times
+    current_time = int(time.time())
+    
+    # Log command 1 hour ago
+    usage_tracker.log_command(
+        "old_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.5
+    )
+    
+    # Log command now
+    usage_tracker.log_command(
+        "new_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.3
+    )
+    
+    # Get stats for last 30 minutes
+    stats = usage_tracker.get_command_stats(time_period=1800)
+    
+    # Check that only new command is included
+    assert "new_command" in stats
+    assert "old_command" not in stats
+
+def test_get_user_stats(usage_tracker):
+    """Test getting user-specific stats"""
+    # Log commands for different users
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.5
+    )
+    
+    usage_tracker.log_command(
+        "test_command",
+        user_id=456,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.3
+    )
+    
+    # Get stats for user 123
+    stats = usage_tracker.get_user_stats(123)
+    
+    # Check stats
+    assert "test_command" in stats
+    assert stats["test_command"]["total_uses"] == 1
+    assert stats["test_command"]["success_rate"] == 100.0
+
+def test_get_error_stats(usage_tracker):
+    """Test getting error statistics"""
+    # Log commands with different errors
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=False,
+        error_message="Error 1",
+        execution_time=0.5
+    )
+    
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=False,
+        error_message="Error 1",
+        execution_time=0.3
+    )
+    
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=False,
+        error_message="Error 2",
+        execution_time=0.4
+    )
+    
+    # Get error stats
+    stats = usage_tracker.get_error_stats()
+    
+    # Check stats
+    assert "test_command" in stats
+    assert "Error 1" in stats["test_command"]
+    assert "Error 2" in stats["test_command"]
+    assert stats["test_command"]["Error 1"] == 2
+    assert stats["test_command"]["Error 2"] == 1
+
+def test_get_usage_trends(usage_tracker):
+    """Test getting usage trends"""
+    # Log commands
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.5
+    )
+    
+    usage_tracker.log_command(
+        "test_command",
+        user_id=123,
+        guild_id=456,
+        channel_id=789,
+        success=True,
+        execution_time=0.3
+    )
+    
+    # Get trends for last 24 hours
+    trends = usage_tracker.get_usage_trends()
+    
+    # Check trends
+    assert "test_command" in trends
+    current_hour = time.strftime("%H")
+    assert current_hour in trends["test_command"]
+    assert trends["test_command"][current_hour] == 2 
