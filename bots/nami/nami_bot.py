@@ -374,7 +374,8 @@ async def set_preferences(ctx):
             ]
         )
         async def select_sources(self, interaction: discord.Interaction, select: Select):
-            self.preferences['preferred_sources'] = json.dumps(select.values)
+            # Store the first selected value directly, not as JSON
+            self.preferences['preferred_sources'] = select.values[0]
             db.set_user_preferences(self.user_id, self.preferences)
             await interaction.response.send_message("News sources updated!", ephemeral=True)
 
