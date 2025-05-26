@@ -86,12 +86,29 @@ Both bots will launch in the background and connect to your Discord server.
 
 ## ✨ Features To Expand
 
-- [ ] Slash command support
-- [ ] Game + sports alerts (MLB, NBA, NFL)
-- [ ] Embedded summaries + rich card formatting
-- [ ] Scheduled briefings (every morning)
+### ✅ Implemented Features
+- [x] Slash command support
+- [x] Game + sports alerts (MLB, NBA, NFL, NHL)
+- [x] Embedded summaries + rich card formatting
+- [x] Scheduled briefings (daily/weekly/monthly)
+- [x] Private DM sessions
+
+### 🚀 Future Features
 - [ ] Voice transcription with Whisper
-- [ ] Private DM sessions
+- [ ] AI-powered command suggestions
+- [ ] Custom command aliases
+- [ ] User-defined command shortcuts
+- [ ] Advanced analytics dashboard
+- [ ] Multi-language support
+- [ ] Role-based command access
+- [ ] Automated moderation tools
+- [ ] Integration with external calendars
+- [ ] Custom notification preferences
+- [ ] Command usage heatmaps
+- [ ] Server activity reports
+- [ ] User engagement metrics
+- [ ] Automated backup system
+- [ ] Plugin system for custom extensions
 
 ---
 
@@ -116,99 +133,100 @@ Both bots will launch in the background and connect to your Discord server.
 
 > _"You're not just running bots. You're commanding a crew."_ – You, probably
 
-# Robin - Discord Bot
+# Robin Discord Bot
 
-A versatile Discord bot with advanced command tracking and statistics capabilities.
+A feature-rich Discord bot with command usage tracking, sports alerts, and private DM sessions.
 
 ## Features
 
-### Command Tracking
-- Tracks command usage, success rates, and execution times
-- Monitors user engagement and command popularity
-- Provides detailed error tracking and analysis
-- Supports time-based filtering for all statistics
+### Command Usage Tracking
+- Tracks command usage statistics
+- Monitors success/failure rates
+- Records execution times
+- Provides usage trends over time
+- Supports time-based filtering (1h, 1d, 1w, 1m)
 
-### Statistics Commands
-- `/stats` - View overall command usage statistics
-- `/userstats` - Check command usage for specific users
-- `/errorstats` - Analyze command error patterns
-- `/serverstats` - View server-wide command usage statistics
-  - Overall server statistics
-  - Command-specific usage
-  - Top users by command usage
-  - Channel usage statistics
-- `/trends` - Visualize command usage trends over time
-  - Hourly usage graphs
-  - Command-specific trends
-  - Customizable time periods
-- `/timeofday` - Analyze command usage patterns by time of day
-  - Hour-by-hour usage breakdown
-  - Peak usage hours identification
-  - Visual representation with bar charts
+### Briefings System
+- Automated usage statistics reports
+- Multiple briefing types:
+  - Daily briefings
+  - Weekly summaries
+  - Monthly reports
+- Customizable scheduling with timezone support
+- Includes:
+  - Top commands by usage
+  - Error statistics
+  - Success rates
+  - Usage trends
 
-### Data Visualization
-- Interactive graphs for usage trends
-- Bar charts for time-of-day analysis
-- Success rate visualizations
-- Error distribution charts
+### Sports Alerts
+- Real-time game updates
+- League support:
+  - NBA
+  - NFL
+  - MLB
+  - NHL
+- Features:
+  - Live score updates
+  - Upcoming game notifications
+  - Betting odds integration
+  - Team-specific subscriptions
+  - League-wide alerts
 
-### Time-based Analysis
-- Filter statistics by time periods (1h, 1d, 1w, 1m)
-- Track usage patterns over time
-- Identify peak usage hours
-- Monitor command popularity trends
+### Private DM Sessions
+- Secure private interactions
+- Session management:
+  - Automatic timeout
+  - Activity tracking
+  - Command history
+- Available commands:
+  - `!help` - Show available commands
+  - `!stats` - View personal usage statistics
+  - `!end` - End DM session
 
-## Installation
+## Setup
 
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/robin.git
-cd robin
-```
-
+1. Clone the repository
 2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Create a `.env` file with:
+   ```
+   DISCORD_TOKEN=your_bot_token
+   ODDS_API_KEY=your_odds_api_key
+   ```
 4. Run the bot:
-```bash
-python main.py
-```
+   ```bash
+   python main.py
+   ```
 
-## Configuration
+## Commands
 
-Create a `.env` file with the following variables:
-```
-DISCORD_TOKEN=your_bot_token
-```
+### Briefings
+- `/schedule` - Schedule a briefing (daily/weekly/monthly)
+- `/unschedule` - Remove a scheduled briefing
+- `/briefings` - List all scheduled briefings
 
-## Usage
+### Sports
+- `/games` - Show upcoming games
+- `/scores` - Show live scores
+- `/subscribe` - Subscribe to game alerts
+- `/unsubscribe` - Remove game subscriptions
+- `/subscriptions` - List current subscriptions
 
-1. Invite the bot to your server using the OAuth2 URL
-2. Use `/help` to see available commands
-3. Start tracking command usage with `/stats`
+### DM Session
+- `/dm` - Start a private DM session
+
+## Dependencies
+- discord.py>=2.0.0
+- matplotlib>=3.5.0
+- pytz>=2021.3
+- python-dotenv>=0.19.0
+- aiohttp>=3.8.0
 
 ## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- Discord.py for the bot framework
-- Matplotlib for data visualization
-- SQLite for data storage
+This project is licensed under the MIT License - see the LICENSE file for details.
