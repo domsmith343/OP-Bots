@@ -114,4 +114,101 @@ Both bots will launch in the background and connect to your Discord server.
 
 ## 📸 Preview
 
-> _“You’re not just running bots. You’re commanding a crew.”_ – You, probably
+> _"You're not just running bots. You're commanding a crew."_ – You, probably
+
+# Robin - Discord Bot
+
+A versatile Discord bot with advanced command tracking and statistics capabilities.
+
+## Features
+
+### Command Tracking
+- Tracks command usage, success rates, and execution times
+- Monitors user engagement and command popularity
+- Provides detailed error tracking and analysis
+- Supports time-based filtering for all statistics
+
+### Statistics Commands
+- `/stats` - View overall command usage statistics
+- `/userstats` - Check command usage for specific users
+- `/errorstats` - Analyze command error patterns
+- `/serverstats` - View server-wide command usage statistics
+  - Overall server statistics
+  - Command-specific usage
+  - Top users by command usage
+  - Channel usage statistics
+- `/trends` - Visualize command usage trends over time
+  - Hourly usage graphs
+  - Command-specific trends
+  - Customizable time periods
+- `/timeofday` - Analyze command usage patterns by time of day
+  - Hour-by-hour usage breakdown
+  - Peak usage hours identification
+  - Visual representation with bar charts
+
+### Data Visualization
+- Interactive graphs for usage trends
+- Bar charts for time-of-day analysis
+- Success rate visualizations
+- Error distribution charts
+
+### Time-based Analysis
+- Filter statistics by time periods (1h, 1d, 1w, 1m)
+- Track usage patterns over time
+- Identify peak usage hours
+- Monitor command popularity trends
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/robin.git
+cd robin
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+4. Run the bot:
+```bash
+python main.py
+```
+
+## Configuration
+
+Create a `.env` file with the following variables:
+```
+DISCORD_TOKEN=your_bot_token
+```
+
+## Usage
+
+1. Invite the bot to your server using the OAuth2 URL
+2. Use `/help` to see available commands
+3. Start tracking command usage with `/stats`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Discord.py for the bot framework
+- Matplotlib for data visualization
+- SQLite for data storage

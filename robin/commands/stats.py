@@ -445,6 +445,91 @@ class StatsCommand(commands.Cog):
                 "Error",
                 f"Failed to show server statistics: {str(e)}"
             ))
+    
+    @app_commands.command(name='timeofday', description='Show command usage by time of day')
+    @app_commands.describe(time_period='Time period to show stats for (1h, 1d, 1w, 1m)')
+    async def timeofday(self, interaction: discord.Interaction, time_period: Optional[str] = None):
+        """Show command usage by time of day"""
+        try:
+            # Convert time period to seconds
+            seconds = None
+            if time_period:
+                unit = time_period[-1].lower()
+                value = int(time_period[:-1])
+                if unit == 'h':
+                    seconds = value * 3600
+                elif unit == 'd':
+                    seconds = value * 86400
+                elif unit == 'w':
+                    seconds = value * 604800
+                elif unit == 'm':
+                    seconds = value * 2592000
+                else:
+                    await interaction.response.send_message(embed=EmbedBuilder.create_error_embed(
+                        "Error",
+                        "Invalid time period. Use format: 1h, 1d, 1w, 1m"
+                    ))
+                    return
+            
+            # Get time of day stats
+            stats = self.usage_tracker.get_time_of_day_stats(seconds)
+            
+            if not stats:
+                await interaction.response.send_message(embed=EmbedBuilder.create_error_embed(
+                    "Error",
+                    "No usage data available for the specified time period."
+                ))
+                return
+            
+            # Create graph
+            plt.figure(figsize=(12, 6))
+            hours = list(stats.keys())
+            counts = list(stats.values())
+            
+            # Create bar chart
+            plt.bar(hours, counts)
+            plt.title('Command Usage by Time of Day')
+            plt.xlabel('Hour of Day (UTC)')
+            plt.ylabel('Usage Count')
+            plt.xticks(rotation=45)
+            plt.grid(True, axis='y')
+            
+            # Save plot to bytes
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', bbox_inches='tight')
+            buf.seek(0)
+            plt.close()
+            
+            # Create embed
+            time_str = ""
+            if seconds:
+                if seconds < 3600:
+                    time_str = f"Last {seconds//60} minutes"
+                elif seconds < 86400:
+                    time_str = f"Last {seconds//3600} hours"
+                elif seconds < 604800:
+                    time_str = f"Last {seconds//86400} days"
+                else:
+                    time_str = f"Last {seconds//604800} weeks"
+            
+            # Find peak hours
+            peak_hours = sorted(stats.items(), key=lambda x: x[1], reverse=True)[:3]
+            peak_text = "\n".join([f"{hour}:00 UTC: {count} uses" for hour, count in peak_hours])
+            
+            embed = EmbedBuilder.create_success_embed(
+                "Time of Day Statistics",
+                f"**Peak Usage Hours**\n{peak_text}",
+                footer=time_str if time_str else "All time"
+            )
+            
+            # Send graph
+            await interaction.response.send_message(embed=embed, file=discord.File(buf, 'timeofday.png'))
+            
+        except Exception as e:
+            await interaction.response.send_message(embed=EmbedBuilder.create_error_embed(
+                "Error",
+                f"Failed to show time of day statistics: {str(e)}"
+            ))
 
 async def setup(bot):
     await bot.add_cog(StatsCommand(bot)) 

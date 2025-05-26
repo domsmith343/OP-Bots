@@ -284,4 +284,44 @@ class UsageTracker:
             
         except Exception as e:
             print(f"Error getting guild stats: {str(e)}")
-            return [] 
+            return []
+    
+    def get_time_of_day_stats(self, time_period: Optional[int] = None) -> Dict:
+        """Get command usage statistics by time of day
+        
+        Args:
+            time_period: Optional time period in seconds to filter stats
+            
+        Returns:
+            Dictionary containing usage counts by hour of day
+        """
+        try:
+            query = """
+                SELECT 
+                    strftime('%H', datetime(timestamp, 'unixepoch')) as hour,
+                    COUNT(*) as use_count
+                FROM command_usage
+            """
+            params = []
+            
+            if time_period:
+                query += " WHERE timestamp >= ?"
+                params.append(int(time.time()) - time_period)
+            
+            query += " GROUP BY hour ORDER BY hour"
+            
+            cursor = self.conn.cursor()
+            cursor.execute(query, params)
+            
+            # Initialize all hours with 0
+            stats = {f"{i:02d}": 0 for i in range(24)}
+            
+            # Update with actual counts
+            for row in cursor.fetchall():
+                stats[row[0]] = row[1]
+            
+            return stats
+            
+        except Exception as e:
+            print(f"Error getting time of day stats: {str(e)}")
+            return {} 
