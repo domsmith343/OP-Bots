@@ -110,7 +110,7 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def scheduled_briefs():
     now = datetime.now().strftime('%H:%M')
-    if now in ["08:00", "14:00", "20:00"]:
+    if now in ["16:00", "22:00", "04:00"]:  # 8am, 2pm, 8pm PST
         channel = bot.get_channel(DAILYBRIEF_CHANNEL_ID)
         if channel:
             try:
