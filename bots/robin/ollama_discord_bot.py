@@ -57,6 +57,11 @@ async def _async_call(prompt: str, model: str = DEFAULT_MODEL) -> str:
 async def on_ready():
     logger.info(f"{bot.user.name} connected!")
     await bot.change_presence(activity=discord.Game(name=f"{COMMAND_PREFIX}help for commands"))
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Slash commands synced: {len(synced)} commands registered.")
+    except Exception as e:
+        logger.error(f"Failed to sync slash commands: {e}")
     update_status.start()
 
 @bot.event

@@ -106,6 +106,11 @@ COINGECKO_IDS = {
 async def on_ready():
     logger.info(f"{bot.user.name} is online!")
     await bot.change_presence(activity=discord.Game(name="!help for Nami's commands"))
+    try:
+        synced = await bot.tree.sync()
+        logger.info(f"Slash commands synced: {len(synced)} commands registered.")
+    except Exception as e:
+        logger.error(f"Failed to sync slash commands: {e}")
     scheduled_briefs.start()
 
 @tasks.loop(minutes=1)
