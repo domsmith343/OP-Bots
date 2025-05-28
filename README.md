@@ -115,10 +115,70 @@ Both bots will launch in the background and connect to your Discord server.
 
 ## ✅ Implemented Features
 
-- [x] Slash command support
-- [x] Game + sports alerts (MLB, NBA, NFL)
-- [x] Scheduled briefings (daily/weekly/monthly)
-- [x] Embedded summaries + rich card formatting
+- [x] Slash command support (including `/stats`, `/userstats`, `/serverstats`, `/games`, `/scores`, `/subscribe`, `/schedule`, `/unschedule`, `/briefings`)
+- [x] Command usage analytics and statistics (track usage, errors, trends per user/server)
+- [x] Game + sports alerts (MLB, NBA, NFL) with live score subscriptions and notifications
+- [x] Scheduled briefings (daily/weekly/monthly) with rich card formatting
+- [x] Embedded summaries for news, weather, crypto, and sports
+- [x] Advanced help system with paginated embeds and dynamic help for commands/categories
+- [x] Robust error handling and logging (user-facing and internal)
+- [x] LLM integration via Ollama API (local model chat, summarization, model selection)
+- [x] Modular API integrations: NewsAPI, OpenWeatherMap, CoinGecko, OddsAPI
+- [x] Rate limiting and user preferences
+- [x] Docker-based deployment for both bots
+- [x] Extensible architecture for adding new commands and APIs
+
+---
+
+## 📚 Command Reference
+
+### Robin (LLM-Powered)
+
+| Command                  | Description                                |
+|-------------------------|--------------------------------------------|
+| `.ask <question>`       | Chat with your local LLM                   |
+| `.models`               | Show available Ollama models               |
+| `.summarize <text>`     | Summarize any input                        |
+| `/stats [time_period]`  | Show command usage statistics              |
+| `/userstats [user]`     | Show user-specific stats                   |
+| `/errorstats`           | Show command error statistics              |
+| `/games <league> [days]`| Show upcoming games                        |
+| `/scores <league>`      | Show live scores                           |
+| `/subscribe <league> [team]` | Subscribe to game alerts           |
+| `/schedule <channel> <time> [timezone] [type]` | Schedule briefings |
+| `/unschedule <channel>` | Remove scheduled briefing                   |
+| `/briefings`            | List all scheduled briefings                |
+
+### Nami (API Specialist)
+
+| Command                  | Description                                |
+|-------------------------|--------------------------------------------|
+| `!news`                 | Latest headlines (NewsAPI)                 |
+| `!weather <city>`       | Current conditions (OpenWeather)           |
+| `!crypto <symbol>`      | Crypto price via CoinGecko                 |
+| `!dailybrief [city]`    | News + Weather + Crypto                    |
+
+---
+
+## 🛠 Advanced Architecture & Features
+
+- **Analytics & Statistics:**
+  - Tracks command usage, errors, and trends per user/server
+  - View stats with `/stats`, `/userstats`, `/serverstats`, `/errorstats`
+- **Briefings System:**
+  - Automated daily, weekly, and monthly briefings with top commands, trends, and error rates
+  - Schedule/unschedule briefings via slash commands
+- **Sports/Game Alerts:**
+  - Subscribe to live score notifications for major leagues
+  - Custom channel subscriptions and notifications
+- **Help System:**
+  - Paginated help embeds, dynamic command/category help, and command discovery
+- **Error Handling:**
+  - User-facing error messages and detailed logging for debugging
+- **Modular APIs:**
+  - Easily extend with new APIs for news, weather, crypto, sports, and LLMs
+- **Dockerized:**
+  - Production-ready Docker Compose setup for both bots
 
 ---
 
