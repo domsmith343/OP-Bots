@@ -12,9 +12,11 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 ## 🧩 Bot Overview
 
 ### 🤖 Robin (LLM-Powered)
+>
 > Access your local Ollama model via Discord
 
 **Commands**
+
 ```
 .ask <question>         # Chat with your LLM
 .models                 # Show available Ollama models
@@ -22,6 +24,7 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 ```
 
 **Slash Commands**
+
 ```
 /stats [time_period]    # Show command usage statistics
 /userstats [user]       # Show user-specific stats
@@ -33,9 +36,11 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 ---
 
 ### 🌤 Nami (API Specialist)
+>
 > News, weather, crypto — your command center bot
 
 **Commands**
+
 ```
 !news                   # Latest headlines (NewsAPI)
 !weather <city>         # Current conditions (OpenWeather)
@@ -44,6 +49,7 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 ```
 
 **Slash Commands**
+
 ```
 /games <league> [days]  # Show upcoming games
 /scores <league>        # Show live scores
@@ -61,6 +67,7 @@ Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
 ## 🚀 Getting Started
 
 1. **Clone the repo**
+
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd your-repo
@@ -69,12 +76,14 @@ cd your-repo
 2. **Create `.env` files**
 
 ### robin/.env
+
 ```
 DISCORD_TOKEN=your_robin_token
 OLLAMA_API=http://host.docker.internal:11434
 ```
 
 ### nami/.env
+
 ```
 DISCORD_TOKEN=your_nami_token
 NEWS_API_KEY=your_newsapi_key

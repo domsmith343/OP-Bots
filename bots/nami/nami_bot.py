@@ -16,6 +16,7 @@ from datetime import datetime
 from api.news import NewsAPI, NewsAPIError
 from api.weather import WeatherAPI
 from api.crypto import CryptoAPI
+from api.sports import get_upcoming_games, get_live_scores
 from db.preferences import PreferencesDB
 from analytics import analytics
 from typing import List
@@ -163,6 +164,9 @@ async def help_command(ctx):
     embed.add_field(name="!weather <city>", value="Get current weather for a city.", inline=False)
     embed.add_field(name="!crypto <symbol>", value="Get current price for a crypto.", inline=False)
     embed.add_field(name="!dailybrief", value="Get top news, weather, and crypto update.", inline=False)
+    embed.add_field(name="!scores <league>", value="Show recent scores for a league (e.g., nba, epl, nfl)", inline=False)
+    embed.add_field(name="!games <league> [days]", value="Show upcoming games for a league (default 3 days)", inline=False)
+    embed.add_field(name="!subscribe <league> [team]", value="Subscribe to game alerts (stub)", inline=False)
     embed.add_field(name="!setprefs", value="Configure your daily brief preferences.", inline=False)
     embed.add_field(name="!togglebrief", value="Toggle daily brief notifications.", inline=False)
     await ctx.send(embed=embed)
@@ -326,6 +330,65 @@ async def crypto(ctx, symbol: str = None):
         logger.error(f"Crypto error for user {user_id}: {str(e)}")
         analytics.log_error("crypto", str(e), user_id)
         await ctx.send(f"Error fetching crypto data: {str(e)}")
+
+@bot.command(name="scores")
+async def scores(ctx, league: str = None):
+    """Show recent scores for a league (NBA, EPL, NFL, etc.)"""
+    if not league:
+        await ctx.send("Please specify a league. Example: !scores nba")
+        return
+    await ctx.trigger_typing()
+    events, err = get_live_scores(league)
+    if err:
+        await ctx.send(err)
+        return
+    if not events:
+        await ctx.send(f"No recent scores found for {league.upper()}.")
+        return
+    msg = f"**Recent {league.upper()} Scores:**\n"
+    for event in events[:5]:
+        home = event.get('strHomeTeam', '?')
+        away = event.get('strAwayTeam', '?')
+        home_score = event.get('intHomeScore', '?')
+        away_score = event.get('intAwayScore', '?')
+        date = event.get('dateEvent', '?')
+        msg += f"{date}: {home} {home_score} - {away_score} {away}\n"
+    await ctx.send(msg)
+
+@bot.command(name="games")
+async def games(ctx, league: str = None, days: int = 3):
+    """Show upcoming games for a league (NBA, EPL, NFL, etc.)"""
+    if not league:
+        await ctx.send("Please specify a league. Example: !games nba")
+        return
+    await ctx.trigger_typing()
+    events, err = get_upcoming_games(league, days)
+    if err:
+        await ctx.send(err)
+        return
+    if not events:
+        await ctx.send(f"No upcoming games found for {league.upper()}.")
+        return
+    msg = f"**Upcoming {league.upper()} Games:**\n"
+    for event in events[:5]:
+        home = event.get('strHomeTeam', '?')
+        away = event.get('strAwayTeam', '?')
+        date = event.get('dateEvent', '?')
+        time = event.get('strTime', '?')
+        msg += f"{date} {time}: {home} vs {away}\n"
+    await ctx.send(msg)
+
+@bot.command(name="subscribe")
+async def subscribe(ctx, league: str = None, *, team: str = None):
+    """Subscribe to game alerts (stub/demo)"""
+    if not league:
+        await ctx.send("Please specify a league. Example: !subscribe nba lakers")
+        return
+    # For demo, just acknowledge
+    if team:
+        await ctx.send(f"Subscribed to {league.upper()} alerts for {team.title()} (demo only)")
+    else:
+        await ctx.send(f"Subscribed to all {league.upper()} alerts (demo only)")
 
 @bot.command(name="dailybrief")
 async def dailybrief(ctx):
