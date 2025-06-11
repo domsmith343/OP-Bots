@@ -6,9 +6,6 @@ class OllamaAPI:
     def __init__(self):
         # Allow base URL to be set via OLLAMA_API_BASE_URL env var (default: http://localhost:11434/api)
         self.base_url = os.environ.get("OLLAMA_API_BASE_URL", "http://localhost:11434/api")
-    
-    async def list_models(self) -> List[str]:
-        """Get list of available models"""
         async with aiohttp.ClientSession() as session:
             async with session.get(f"{self.base_url}/tags") as response:
                 data = await response.json()
@@ -22,4 +19,5 @@ class OllamaAPI:
                 json={"model": model, "prompt": prompt}
             ) as response:
                 data = await response.json()
+                return data["response"] 
                 return data["response"] 

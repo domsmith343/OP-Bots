@@ -34,34 +34,16 @@ if not DISCORD_TOKEN:
 # Intent and Bot initialization
 intents = discord.Intents.default()
 intents.message_content = True
+
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=None)
 
 # In-memory schedule storage
 SCHEDULE = []
 
-def call_ollama_api(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    return asyncio.get_event_loop().run_until_complete(_async_call(prompt, model))
-
-async def _async_call(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    api_url = f"{OLLAMA_API}/api/generate"
-    payload = {"model": model, "prompt": prompt, "stream": False}
-    try:
-        response = await asyncio.to_thread(requests.post, api_url, json=payload, timeout=120)
-        if response.status_code == 200:
-            return response.json().get('response', 'No response from model')
-        return f"Error {response.status_code}: {response.text}"
-    except Exception as e:
-        return f"Connection error: {e}"
-
 @bot.event
 async def on_ready():
     logger.info(f"{bot.user.name} connected!")
     await bot.change_presence(activity=discord.Game(name=f"{COMMAND_PREFIX}help for commands"))
-    try:
-        synced = await bot.tree.sync()
-        logger.info(f"Slash commands synced: {len(synced)} commands registered.")
-    except Exception as e:
-        logger.error(f"Failed to sync slash commands: {e}")
     update_status.start()
 
 @bot.event
@@ -175,6 +157,20 @@ async def schedule(ctx, *, entry: str = None):
 @bot.command(name="news")
 async def news(ctx):
     return await ctx.send("Robin does not handle news. Please use Nami with `!news`.")
+
+def call_ollama_api(prompt: str, model: str = DEFAULT_MODEL) -> str:
+    return asyncio.get_event_loop().run_until_complete(_async_call(prompt, model))
+
+async def _async_call(prompt: str, model: str = DEFAULT_MODEL) -> str:
+    api_url = f"{OLLAMA_API}/api/generate"
+    payload = {"model": model, "prompt": prompt, "stream": False}
+    try:
+        response = await asyncio.to_thread(requests.post, api_url, json=payload, timeout=120)
+        if response.status_code == 200:
+            return response.json().get('response', 'No response from model')
+        return f"Error {response.status_code}: {response.text}"
+    except Exception as e:
+        return f"Connection error: {e}"
 
 if __name__ == "__main__":
     try:
