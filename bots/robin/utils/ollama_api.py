@@ -1,9 +1,11 @@
 import aiohttp
+import os
 from typing import List, Dict
 
 class OllamaAPI:
     def __init__(self):
-        self.base_url = "http://localhost:11434/api"
+        # Allow base URL to be set via OLLAMA_API_BASE_URL env var (default: http://localhost:11434/api)
+        self.base_url = os.environ.get("OLLAMA_API_BASE_URL", "http://localhost:11434/api")
     
     async def list_models(self) -> List[str]:
         """Get list of available models"""
