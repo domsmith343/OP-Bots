@@ -158,9 +158,6 @@ async def schedule(ctx, *, entry: str = None):
 async def news(ctx):
     return await ctx.send("Robin does not handle news. Please use Nami with `!news`.")
 
-def call_ollama_api(prompt: str, model: str = DEFAULT_MODEL) -> str:
-    return asyncio.get_event_loop().run_until_complete(_async_call(prompt, model))
-
 async def _async_call(prompt: str, model: str = DEFAULT_MODEL) -> str:
     api_url = f"{OLLAMA_API}/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": False}

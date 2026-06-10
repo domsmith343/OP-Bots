@@ -15,7 +15,7 @@ import asyncio
 from datetime import datetime
 from api.news import NewsAPI, NewsAPIError
 from api.weather import WeatherAPI
-from api.crypto import CryptoAPI
+from api.crypto import CryptoAPI, CryptoAPIError
 from db.preferences import PreferencesDB
 from analytics import analytics
 from typing import List
@@ -61,24 +61,6 @@ bot.last_news_call = {}
 bot.last_weather_call = {}
 bot.last_crypto_call = {}
 bot.last_dailybrief_call = {}
-
-# Health check
-@tasks.loop(minutes=5)
-async def health_check():
-    """Periodic health check for API endpoints"""
-    try:
-        # Check news API
-        await news_api.get_top_headlines()
-        
-        # Check weather API
-        await weather_api.get_weather(DEFAULT_CITY)
-        
-        # Check crypto API
-        await crypto_api.get_price(DEFAULT_CRYPTO)
-        
-        logger.info("All API endpoints are healthy")
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
 
 # Command error handler
 @bot.event
@@ -203,32 +185,14 @@ async def news(ctx, category: str = None, *, keyword: str = None):
             await ctx.send("No news articles found.")
             return
 
-        # Create pagination if more than 5 articles
-        if total_results > 5:
-            class NewsPagination(View):
-                def __init__(self, embeds):
-                    super().__init__(timeout=60)
-                    self.embeds = embeds
-                    self.current_page = 0
-                    self.message = None
-
-                @discord.ui.button(label="Previous", style=ButtonStyle.primary)
-                async def previous(self, interaction: discord.Interaction, button: Button):
-                    await interaction.response.defer()
-                    if self.current_page > 0:
-                        self.current_page -= 1
-                        await self.message.edit(embed=self.embeds[self.current_page])
-
-                @discord.ui.button(label="Next", style=ButtonStyle.primary)
-                async def next(self, interaction: discord.Interaction, button: Button):
-                    await interaction.response.defer()
-                    if self.current_page < len(self.embeds) - 1:
-                        self.current_page += 1
-                        await self.message.edit(embed=self.embeds[self.current_page])
-
+        # Create pagination if more than one page of articles
+        if len(embeds) > 1:
             view = NewsPagination(embeds)
-            view.message = await ctx.send(embed=embeds[0], view=view)
-            await ctx.send(f"Found {total_results} articles. Use buttons to navigate.")
+            await ctx.send(
+                content=f"Found {total_results} articles. Use the buttons to navigate.",
+                embed=embeds[0],
+                view=view,
+            )
         else:
             # Send articles as Discord embeds
             for embed in embeds:
@@ -303,12 +267,9 @@ async def crypto(ctx, symbol: str = None):
         if not symbol:
             symbol = preferences.get('preferred_crypto', DEFAULT_CRYPTO)
         symbol = symbol.lower()
-        
+
         price_data = await crypto_api.get_price(symbol)
-        if not price_data:
-            await ctx.send(f"Unknown cryptocurrency symbol: {symbol}")
-            return
-            
+
         embed = Embed(
             title=f"{symbol.upper()} Price",
             color=discord.Color.gold()
@@ -321,7 +282,10 @@ async def crypto(ctx, symbol: str = None):
         
         # Log command usage
         analytics.log_command("crypto", user_id)
-        
+
+    except CryptoAPIError as e:
+        analytics.log_error("crypto", str(e), user_id)
+        await ctx.send(f"Couldn't get a price for `{symbol}`: {e}")
     except Exception as e:
         logger.error(f"Crypto error for user {user_id}: {str(e)}")
         analytics.log_error("crypto", str(e), user_id)
