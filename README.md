@@ -1,190 +1,116 @@
 # 🧠 Robin & 🌊 Nami — Discord Bots with LLM + API Power
 
-Welcome to your custom two-bot Discord system!
+A two-bot Discord system:
 
-- **Robin** handles natural language queries via your local LLM (Ollama).
-- **Nami** fetches real-time news, weather, crypto updates, and daily briefings using public APIs.
+- **Robin** answers natural-language questions via a local LLM (Ollama) and a few handy lookups.
+- **Nami** fetches real-time news, weather, and crypto, and posts scheduled daily briefs.
 
-Built with 💻 Python, 🐋 Docker, and ⚡️ Discord.py
+Built with 💻 Python, 🐋 Docker, and ⚡️ [discord.py](https://github.com/Rapptz/discord.py).
+
+Both bots use classic **prefix commands** (not slash commands). Robin listens on `.`, Nami on `!`.
 
 ---
 
 ## 🧩 Bot Overview
 
-### 🤖 Robin (LLM-Powered)
->
-> Access your local Ollama model via Discord
+### 🤖 Robin (LLM-Powered) — prefix `.`
 
-**Commands**
+> Talk to your local Ollama model from Discord.
 
-```
-.ask <question>         # Chat with your LLM
-.models                 # Show available Ollama models
-.summarize <text>       # Summarize any input
-```
+| Command            | Description                                         |
+|--------------------|-----------------------------------------------------|
+| `.ask <question>`  | Ask the LLM a question (long replies are chunked).  |
+| `.summarize <text>`| Summarize any block of text with the LLM.           |
+| `.models`          | List the models installed in your Ollama instance.  |
+| `.define <term>`   | Dictionary lookup (dictionaryapi.dev).              |
+| `.anime <title>`   | Anime info lookup (Jikan / MyAnimeList).            |
+| `.schedule [entry]`| List the in-memory schedule, or add an entry.       |
+| `.help`            | Show Robin's command list.                          |
 
-**Slash Commands**
+> Note: `.schedule` is stored in memory and is cleared when the bot restarts.
 
-```
-/stats [time_period]    # Show command usage statistics
-/userstats [user]       # Show user-specific stats
-/errorstats            # Show command error statistics
-```
+### 🌊 Nami (API Specialist) — prefix `!`
 
-> Prefix: `.` (dot)
+> News, weather, and crypto — plus an automatic daily brief.
 
----
+| Command                       | Description                                                  |
+|-------------------------------|--------------------------------------------------------------|
+| `!news [category] [keyword]`  | US headlines (NewsAPI). Categories: general, sports, business, technology, entertainment, health, science. |
+| `!weather <city>`             | Current conditions (OpenWeather). Defaults to your preference/`DEFAULT_CITY`. |
+| `!crypto <symbol>`            | Price + 24h change (CoinGecko). Supported: btc, eth, sol, doge, ada, dot, ltc. |
+| `!dailybrief`                 | Combined news + weather + BTC update.                        |
+| `!setprefs`                   | Configure preferred news source, crypto, and location.       |
+| `!togglebrief`                | Toggle your daily-brief notifications on/off.                |
+| `!stats`                      | Usage/error analytics (**bot owner only**).                  |
+| `!help`                       | Show Nami's command list.                                    |
 
-### 🌤 Nami (API Specialist)
->
-> News, weather, crypto — your command center bot
-
-**Commands**
-
-```
-!news                   # Latest headlines (NewsAPI)
-!weather <city>         # Current conditions (OpenWeather)
-!crypto <symbol>        # Crypto price via CoinGecko
-!dailybrief [city]      # News + Weather + Crypto
-```
-
-**Slash Commands**
-
-```
-/games <league> [days]  # Show upcoming games
-/scores <league>        # Show live scores
-/subscribe <league> [team]  # Subscribe to game alerts
-
-/schedule <channel> <time> [timezone] [type]  # Schedule briefings
-/unschedule <channel>   # Remove scheduled briefing
-/briefings             # List all scheduled briefings
-```
-
-> Prefix: `!` (bang)
+> **Scheduled brief:** Nami automatically posts a daily brief at **08:00, 14:00, and 20:00** (server local time) to the channel set by `DAILYBRIEF_CHANNEL_ID`.
 
 ---
 
 ## 🚀 Getting Started
 
-1. **Clone the repo**
+### 1. Clone
 
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd your-repo
 ```
 
-2. **Create `.env` files**
+### 2. Create `.env` files
 
-### robin/.env
+These are gitignored and required for Docker to run.
+
+**`bots/robin/.env`**
 
 ```
 DISCORD_TOKEN=your_robin_token
-OLLAMA_API=http://host.docker.internal:11434
+OLLAMA_API=http://host.docker.internal:11434   # reach Ollama on the host from inside Docker
+OLLAMA_DEFAULT_MODEL=llama3                     # optional, default: llama3
+COMMAND_PREFIX=.                                # optional, default: .
 ```
 
-### nami/.env
+**`bots/nami/.env`**
 
 ```
 DISCORD_TOKEN=your_nami_token
 NEWS_API_KEY=your_newsapi_key
 WEATHER_API_KEY=your_openweather_key
+DAILYBRIEF_CHANNEL_ID=123456789012345678        # channel for scheduled briefs
+DEFAULT_CITY=los angeles                         # optional, default: los angeles
+DEFAULT_CRYPTO=btc                               # optional, default: btc
 ```
 
-> These files are gitignored and required for Docker to run correctly.
+> CoinGecko needs no API key.
 
----
-
-## 🐳 Running the Bots (Docker Compose)
+### 3. Run with Docker Compose
 
 ```bash
 docker-compose down
 docker-compose up -d --build
 ```
 
-Both bots will launch in the background and connect to your Discord server.
+Both bots launch in the background and connect to your server.
 
 ---
 
-## ✨ Features To Implement
+## 🗂 Project Layout
 
-- [ ] Voice transcription with Whisper
-- [ ] Private DM sessions
-- [ ] Dictionary lookup command
-- [ ] Anime info command
-- [ ] Personal reminders system
-
-## ✅ Implemented Features
-
-- [x] Slash command support (including `/stats`, `/userstats`, `/serverstats`, `/games`, `/scores`, `/subscribe`, `/schedule`, `/unschedule`, `/briefings`)
-- [x] Command usage analytics and statistics (track usage, errors, trends per user/server)
-- [x] Game + sports alerts (MLB, NBA, NFL) with live score subscriptions and notifications
-- [x] Scheduled briefings (daily/weekly/monthly) with rich card formatting
-- [x] Embedded summaries for news, weather, crypto, and sports
-- [x] Advanced help system with paginated embeds and dynamic help for commands/categories
-- [x] Robust error handling and logging (user-facing and internal)
-- [x] LLM integration via Ollama API (local model chat, summarization, model selection)
-- [x] Modular API integrations: NewsAPI, OpenWeatherMap, CoinGecko, OddsAPI
-- [x] Rate limiting and user preferences
-- [x] Docker-based deployment for both bots
-- [x] Extensible architecture for adding new commands and APIs
-
----
-
-## 📚 Command Reference
-
-### Robin (LLM-Powered)
-
-| Command                  | Description                                |
-|-------------------------|--------------------------------------------|
-| `.ask <question>`       | Chat with your local LLM                   |
-| `.models`               | Show available Ollama models               |
-| `.summarize <text>`     | Summarize any input                        |
-| `/stats [time_period]`  | Show command usage statistics              |
-| `/userstats [user]`     | Show user-specific stats                   |
-| `/errorstats`           | Show command error statistics              |
-| `/games <league> [days]`| Show upcoming games                        |
-| `/scores <league>`      | Show live scores                           |
-| `/subscribe <league> [team]` | Subscribe to game alerts           |
-| `/schedule <channel> <time> [timezone] [type]` | Schedule briefings |
-| `/unschedule <channel>` | Remove scheduled briefing                   |
-| `/briefings`            | List all scheduled briefings                |
-
-### Nami (API Specialist)
-
-| Command                  | Description                                |
-|-------------------------|--------------------------------------------|
-| `!news`                 | Latest headlines (NewsAPI)                 |
-| `!weather <city>`       | Current conditions (OpenWeather)           |
-| `!crypto <symbol>`      | Crypto price via CoinGecko                 |
-| `!dailybrief [city]`    | News + Weather + Crypto                    |
-
----
-
-## 🛠 Advanced Architecture & Features
-
-- **Analytics & Statistics:**
-  - Tracks command usage, errors, and trends per user/server
-  - View stats with `/stats`, `/userstats`, `/serverstats`, `/errorstats`
-- **Briefings System:**
-  - Automated daily, weekly, and monthly briefings with top commands, trends, and error rates
-  - Schedule/unschedule briefings via slash commands
-- **Sports/Game Alerts:**
-  - Subscribe to live score notifications for major leagues
-  - Custom channel subscriptions and notifications
-- **Help System:**
-  - Paginated help embeds, dynamic command/category help, and command discovery
-- **Error Handling:**
-  - User-facing error messages and detailed logging for debugging
-- **Modular APIs:**
-  - Easily extend with new APIs for news, weather, crypto, sports, and LLMs
-- **Dockerized:**
-  - Production-ready Docker Compose setup for both bots
-
----
-
-## 🛡 .gitignore
-
-`.env` files and local caches are excluded. See `.gitignore` for details.
+```
+bots/
+  robin/
+    ollama_discord_bot.py   # Robin entrypoint (the bot that runs)
+    requirements.txt
+    Dockerfile
+  nami/
+    nami_bot.py             # Nami entrypoint (the bot that runs)
+    api/                    # news, weather, crypto clients
+    db/                     # user preferences (JSON-backed)
+    analytics.py            # command/error usage tracking
+    requirements.txt
+    Dockerfile
+docker-compose.yml
+```
 
 ---
 
@@ -200,4 +126,4 @@ Both bots will launch in the background and connect to your Discord server.
 
 ## 📸 Preview
 
-> _"You're not just running bots. You're commanding a crew."_ – You, probably
+> _"You're not just running bots. You're commanding a crew."_
