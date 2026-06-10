@@ -7,10 +7,9 @@ import os
 import discord
 from discord.ext import commands, tasks
 from discord import Embed, ButtonStyle, SelectOption
-from discord.ui import View, Button, Select
+from discord.ui import View, Select
 import logging
 from dotenv import load_dotenv
-import json
 import asyncio
 from datetime import datetime
 from api.news import NewsAPI, NewsAPIError
@@ -72,16 +71,6 @@ async def on_command_error(ctx, error):
     else:
         logger.error(f"Command error in {ctx.command}: {error}")
         await ctx.send("An unexpected error occurred. Please try again later.")
-
-COINGECKO_IDS = {
-    "btc": "bitcoin",
-    "eth": "ethereum",
-    "sol": "solana",
-    "doge": "dogecoin",
-    "ada": "cardano",
-    "dot": "polkadot",
-    "ltc": "litecoin"
-}
 
 @bot.event
 async def on_ready():
